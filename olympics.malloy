@@ -1,0 +1,108 @@
+source: olympics is duckdb.table('athlete_events.parquet') extend {
+    dimension: 
+    HeightNum is Height:::number
+    AgeNum is Age:::number
+    WeightNum is Weight:::number
+
+    measure: 
+    avg_height is avg(HeightNum)
+    avg_weight is avg(WeightNum)
+    num_atheletes is count(ID)
+    num_years is count(`Year`)
+}
+
+-- All Summer, athletic (track & field) olympics
+run: olympics -> {
+    select: *
+    where: Season = 'Summer', Sport = 'Athletics'
+}
+
+-- Count of summer track & field athletes and years
+run: olympics -> {
+    group_by: Event
+    where: Season = 'Summer', Sport = 'Athletics'
+    aggregate: 
+    num_atheletes
+    num_years
+}
+
+-- Men's 100m
+run: olympics -> {
+    group_by: Event
+    having: Event = 'Athletics Men\'s 100 metres'
+    nest: by_medal is {
+        group_by: Medal
+        aggregate: 
+        num_atheletes is count(ID)
+        average_height is avg(HeightNum)
+    }
+}
+
+-- Men's 100m, average height over time
+# line_chart
+run: olympics -> {
+    group_by: `Year`
+    having: Event = 'Athletics Men\'s 100 metres'
+    aggregate: `Average Height in cm` is avg_height
+}
+
+-- Men's 200m, average height over time
+# line_chart
+run: olympics -> {
+    group_by: `Year`
+    having: Event = 'Athletics Men\'s 200 metres'
+    aggregate: `Average Height in cm` is avg_height
+}
+
+-- Men's 400m, average height over time
+# line_chart
+run: olympics -> {
+    group_by: `Year`
+    having: Event = 'Athletics Men\'s 400 metres'
+    aggregate: `Average Height in cm` is avg_height
+}
+
+-- Men's 100, 200, and 400 average height over time
+# line_chart
+run: olympics -> {
+    group_by: `Year`
+    having: Event = 'Athletics Men\'s 100 metres' | 'Athletics Men\'s 200 metres' | 'Athletics Men\'s 400 metres'
+    aggregate: `Average Height in cm` is avg_height
+    group_by: Event
+}
+
+-- Men's 100, average height over time, gold vs no placement since 1904
+# line_chart
+run: olympics -> {
+    group_by: `Year`
+    having: Event = 'Athletics Men\'s 100 metres'
+    having: Medal = 'Gold'| 'NA'
+    having: `Year` >= 1904
+    aggregate: `Average Height in cm` is avg_height
+    group_by: Medal
+}
+
+-- Men's 100, average height over time, all medals vs no placement
+# line_chart
+run: olympics -> {
+    group_by: `Year`
+    having: Event = 'Athletics Men\'s 100 metres'
+    having: `Year` > 1904
+    aggregate: `Average Height in cm` is avg_height
+    group_by: Medal
+}
+
+-- Men's 100, average weight and height
+run: olympics -> {
+    where: 
+        Event = 'Athletics Men\'s 100 metres',
+        `Year` > 1904,
+    group_by: 
+        Medal
+        # scatter_chart
+        nest: `WeightVsHeight` is {
+            group_by:
+                `Weight in kg` is WeightNum
+                `Height in cm` is HeightNum
+        }
+}
